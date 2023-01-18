@@ -61,10 +61,9 @@ func main() {
 		log.Fatal("found no FTDI device on the USB bus")
 	}
 
-	// Use channel A.
 	ft232h, ok := all[0].(*ftdi.FT232H)
 	if !ok {
-		log.Fatal("not FTDI device on the USB bus")
+		log.Fatalf("no FT232H device on the USB bus (available: %v)", all)
 	}
 	defer ft232h.Halt()
 
@@ -89,11 +88,11 @@ func main() {
 	}
 	rst, err := findGPIO(ft232h, "FT232H.C2")
 	if err != nil {
-		log.Fatalf("cs: %s", err)
+		log.Fatalf("rst: %s", err)
 	}
 	busy, err := findGPIO(ft232h, "FT232H.C3")
 	if err != nil {
-		log.Fatalf("cs: %s", err)
+		log.Fatalf("busy: %s", err)
 	}
 
 	epd, err := NewEPD154FromConn(c, dc, cs, rst, busy)
@@ -115,8 +114,8 @@ func main() {
 			rot := imaging.Rotate(img, i, color.Transparent)
 			epd.UpdateDisplay(rot, true)
 		}
-
 	}
 
+	// We deliberately don't close it, as that will clear the screen
 	//epd.Close()
 }
