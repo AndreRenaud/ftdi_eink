@@ -111,10 +111,6 @@ func NewEPD154FromConn(c spi.Conn, dc, cs, rst gpio.PinOut, busy gpio.PinIO) (*E
 		return nil, err
 	}
 
-	//cs.Out(gpio.Low)
-	//c.Tx([]byte{1, 2, 3, 4, 5, 6}, nil)
-	//cs.Out(gpio.High)
-
 	// Prints out the gpio pin used.
 	if p, ok := c.(spi.Pins); ok {
 		log.Printf("  CLK : %s", p.CLK())
@@ -138,10 +134,6 @@ func NewEPD154FromConn(c spi.Conn, dc, cs, rst gpio.PinOut, busy gpio.PinIO) (*E
 	cs.Out(gpio.High)
 	busy.In(gpio.PullDown, gpio.NoEdge)
 
-	//d.reset()
-	//if busy.Read() == gpio.High {
-	//return nil, fmt.Errorf("busy stuck high?")
-	//}
 	e.init()
 	e.clear()
 
@@ -204,11 +196,9 @@ parameter:
 *****************************************************************************
 */
 func (e *EPD154) readBusy() {
-	log.Printf("waiting for busy")
 	for e.busy.Read() == gpio.High {
 		time.Sleep(time.Millisecond)
 	}
-	log.Printf("done waiting")
 }
 
 /*
