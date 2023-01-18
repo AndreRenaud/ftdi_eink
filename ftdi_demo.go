@@ -11,6 +11,7 @@ import (
 	"image/draw"
 	_ "image/png"
 
+	"github.com/MaxHalford/halfgone"
 	"github.com/disintegration/imaging"
 	"periph.io/x/conn/v3/gpio"
 	"periph.io/x/conn/v3/physic"
@@ -37,7 +38,12 @@ func getImageFromFilePath(filePath string) (image.Image, error) {
 	}
 	defer f.Close()
 	image, _, err := image.Decode(f)
-	return image, err
+	if err != nil {
+		return nil, err
+	}
+	gray := halfgone.ImageToGray(image)
+
+	return halfgone.FloydSteinbergDitherer{}.Apply(gray), nil
 }
 
 func main() {

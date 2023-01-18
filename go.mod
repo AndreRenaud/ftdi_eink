@@ -10,6 +10,7 @@ require (
 )
 
 require (
+	github.com/MaxHalford/halfgone v0.0.0-20171017091812-482157b86ccb // indirect
 	golang.org/x/image v0.3.0 // indirect
 	periph.io/x/d2xx v0.1.0 // indirect
 )
