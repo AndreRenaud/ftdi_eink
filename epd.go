@@ -7,11 +7,11 @@ import (
 	"errors"
 	"image"
 	"image/color"
+	"image/draw"
 	"time"
 
-	"golang.org/x/image/draw"
-
 	"github.com/MaxHalford/halfgone"
+	"github.com/disintegration/imaging"
 	"periph.io/x/conn/v3"
 	"periph.io/x/conn/v3/gpio"
 	"periph.io/x/conn/v3/physic"
@@ -167,13 +167,6 @@ parameter:
 */
 func (e *EPD154) sendData(data byte) error {
 	return e.sendDataBulk([]byte{data})
-	//e.dc.Out(gpio.High)
-	//e.cs.Out(gpio.Low)
-	//if err := e.c.Tx([]byte{data}, nil); err != nil {
-	//return err
-	//}
-	//e.cs.Out(gpio.High)
-	//return nil
 }
 
 func (e *EPD154) sendDataBulk(data []byte) error {
@@ -371,7 +364,6 @@ func pixelisset(c color.Color) bool {
 }
 
 func (e *EPD154) sendImage(img image.Image) {
-	// TODO: make sure image.width == 200 && image.height == 200
 	for y := 0; y < EPD_1IN54_V2_HEIGHT; y++ {
 		tosend := [EPD_1IN54_V2_WIDTH / 8]byte{}
 		bytetosend := byte(0)
@@ -381,12 +373,10 @@ func (e *EPD154) sendImage(img image.Image) {
 			}
 			if x%8 == 7 {
 				tosend[x/8] = bytetosend
-				//e.sendData(bytetosend)
 				bytetosend = 0
 			}
 		}
 		e.sendDataBulk(tosend[:])
-		//fmt.Printf("\n")
 	}
 }
 
@@ -441,9 +431,15 @@ func (e *EPD154) UpdateDisplay(img image.Image, partial bool) {
 
 	bounds := e.image.Bounds()
 	gray := image.NewGray(bounds)
-	draw.ApproxBiLinear.Scale(gray, bounds, img, img.Bounds(), draw.Src, nil)
+	if bounds != img.Bounds() {
+		scaled := imaging.Fit(img, bounds.Max.X, bounds.Max.Y, imaging.Lanczos)
+		draw.Draw(gray, bounds, scaled, image.Point{}, draw.Src)
+	} else {
+		draw.Draw(gray, bounds, img, image.Point{}, draw.Src)
+	}
 
-	draw.Draw(e.image, e.image.Bounds(), halfgone.FloydSteinbergDitherer{}.Apply(gray), image.Point{}, draw.Src)
+	// TODO: Should only dither if img isn't already B&W
+	draw.Draw(e.image, bounds, halfgone.FloydSteinbergDitherer{}.Apply(gray), image.Point{}, draw.Src)
 
 	if partial {
 		e.displayPart()
@@ -460,5 +456,5 @@ func (e *EPD154) Close() error {
 }
 
 func (e *EPD154) Bounds() image.Rectangle {
-	return image.Rectangle{image.Point{0, 0}, image.Point{EPD_1IN54_V2_WIDTH, EPD_1IN54_V2_HEIGHT}}
+	return e.image.Bounds()
 }

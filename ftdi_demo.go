@@ -66,11 +66,13 @@ func main() {
 	if !ok {
 		log.Fatal("not FTDI device on the USB bus")
 	}
+	defer ft232h.Halt()
 
 	s, err := ft232h.SPI()
 	if err != nil {
 		log.Fatalf("spi: %s", err)
 	}
+	defer s.Close()
 
 	c, err := s.Connect(5*physic.MegaHertz, spi.Mode0, 8)
 	if err != nil {
