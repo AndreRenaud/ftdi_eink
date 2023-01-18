@@ -364,20 +364,20 @@ func pixelisset(c color.Color) bool {
 }
 
 func (e *EPD154) sendImage(img image.Image) {
+	tosend := [EPD_1IN54_V2_WIDTH * EPD_1IN54_V2_HEIGHT / 8]byte{}
 	for y := 0; y < EPD_1IN54_V2_HEIGHT; y++ {
-		tosend := [EPD_1IN54_V2_WIDTH / 8]byte{}
 		bytetosend := byte(0)
 		for x := 0; x < EPD_1IN54_V2_WIDTH; x++ {
 			if pixelisset(img.At(x, y)) {
 				bytetosend |= 0x80 >> (x % 8)
 			}
 			if x%8 == 7 {
-				tosend[x/8] = bytetosend
+				tosend[(y*EPD_1IN54_V2_WIDTH+x)/8] = bytetosend
 				bytetosend = 0
 			}
 		}
-		e.sendDataBulk(tosend[:])
 	}
+	e.sendDataBulk(tosend[:])
 }
 
 func (e *EPD154) display() {
