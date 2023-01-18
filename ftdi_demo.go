@@ -6,8 +6,11 @@ import (
 	"image"
 	"log"
 	"os"
+	"strings"
+	"time"
 
 	"image/color"
+	"image/gif"
 	_ "image/png"
 
 	"github.com/disintegration/imaging"
@@ -35,6 +38,18 @@ func getImageFromFilePath(filePath string) (image.Image, error) {
 	}
 	defer f.Close()
 	img, _, err := image.Decode(f)
+	if err != nil {
+		return nil, err
+	}
+	return img, nil
+}
+func getGifFromFilePath(filePath string) (*gif.GIF, error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	img, err := gif.DecodeAll(f)
 	if err != nil {
 		return nil, err
 	}
@@ -100,19 +115,40 @@ func main() {
 		log.Fatalf("NewEPD: %s", err)
 	}
 
-	img, err := getImageFromFilePath(*image_filename)
-	if err != nil {
-		log.Fatalf("load image: %s", err)
-	}
-	if *rotate != 0 {
-		img = imaging.Rotate(img, float64(*rotate%360), color.Transparent)
-	}
-	epd.UpdateDisplay(img, false)
+	if strings.HasSuffix(*image_filename, ".gif") {
+		log.Printf("Detected GIF - assuming an infinite loop")
+		img, err := getGifFromFilePath(*image_filename)
+		if err != nil {
+			log.Fatalf("load gif: %s", err)
+		}
+		first := true
+		for {
+			for i := 0; i < len(img.Image); i++ {
+				delay := time.Duration(img.Delay[i]*10) * time.Millisecond
+				next := time.Now().Add(delay)
+				log.Printf("Drawing frame %d of %d (%s delay)", i, len(img.Image), delay)
+				frame := imaging.Rotate(img.Image[i], float64(*rotate%360), color.Transparent)
+				epd.UpdateDisplay(frame, !first)
+				time.Sleep(time.Until(next))
+				first = false
+			}
+		}
+	} else {
 
-	if *spin {
-		for i := 0.0; i <= 360; i += 5 {
-			rot := imaging.Rotate(img, i, color.Transparent)
-			epd.UpdateDisplay(rot, true)
+		img, err := getImageFromFilePath(*image_filename)
+		if err != nil {
+			log.Fatalf("load image: %s", err)
+		}
+		if *rotate != 0 {
+			img = imaging.Rotate(img, float64(*rotate%360), color.Transparent)
+		}
+		epd.UpdateDisplay(img, false)
+
+		if *spin {
+			for i := 0.0; i <= 360; i += 5 {
+				rot := imaging.Rotate(img, i, color.Transparent)
+				epd.UpdateDisplay(rot, true)
+			}
 		}
 	}
 
