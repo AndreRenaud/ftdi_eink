@@ -8,15 +8,12 @@ import (
 	"os"
 
 	"image/color"
-	"image/draw"
 	_ "image/png"
 
-	"github.com/MaxHalford/halfgone"
 	"github.com/disintegration/imaging"
 	"periph.io/x/conn/v3/gpio"
 	"periph.io/x/conn/v3/physic"
 	"periph.io/x/conn/v3/spi"
-	"periph.io/x/devices/v3/ssd1306/image1bit"
 	"periph.io/x/host/v3"
 	"periph.io/x/host/v3/ftdi"
 )
@@ -37,13 +34,11 @@ func getImageFromFilePath(filePath string) (image.Image, error) {
 		return nil, err
 	}
 	defer f.Close()
-	image, _, err := image.Decode(f)
+	img, _, err := image.Decode(f)
 	if err != nil {
 		return nil, err
 	}
-	gray := halfgone.ImageToGray(image)
-
-	return halfgone.FloydSteinbergDitherer{}.Apply(gray), nil
+	return img, nil
 }
 
 func main() {
@@ -104,31 +99,22 @@ func main() {
 		log.Fatalf("NewEPD: %s", err)
 	}
 
-	img := image1bit.NewVerticalLSB(image.Rectangle{image.Point{0, 0}, image.Point{200, 200}})
-	draw.Draw(img, img.Bounds(), &image.Uniform{color.White}, image.Point{}, draw.Src)
-	//img := image.NewNRGBA(image.Rect(0, 0, 200, 200))
-	// fill it white
-	//draw.Draw(img, img.Bounds(), &image.Uniform{color.White}, image.Point{}, draw.Src)
-
-	logo, err := getImageFromFilePath(*image_filename)
+	img, err := getImageFromFilePath(*image_filename)
 	if err != nil {
 		log.Fatalf("load image: %s", err)
 	}
-	new := imaging.Rotate(logo, float64((*rotate+180)%360), color.Transparent)
-	draw.Draw(img, img.Bounds(), new, image.Point{}, draw.Src)
-	//draw.Draw(img, img.Bounds(), logo, image.Point{}, draw.Src)
+	if *rotate != 0 {
+		img = imaging.Rotate(img, float64(*rotate%360), color.Transparent)
+	}
 	epd.UpdateDisplay(img, false)
 
 	if *spin {
-		for i := 0; i <= 360; i += 5 {
-			new := imaging.Rotate(logo, float64((*rotate+180+i)%360), color.Transparent)
-			draw.Draw(img, img.Bounds(), new, image.Point{}, draw.Src)
-			//draw.Draw(img, img.Bounds(), logo, image.Point{}, draw.Src)
-			epd.UpdateDisplay(img, true)
+		for i := 0.0; i <= 360; i += 5 {
+			rot := imaging.Rotate(img, i, color.Transparent)
+			epd.UpdateDisplay(rot, true)
 		}
 
 	}
-	//epd.display(img)
 
 	//epd.Close()
 }

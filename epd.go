@@ -7,14 +7,17 @@ import (
 	"errors"
 	"image"
 	"image/color"
+	"image/draw"
 	"log"
 	"time"
 
+	"github.com/MaxHalford/halfgone"
 	"periph.io/x/conn/v3"
 	"periph.io/x/conn/v3/gpio"
 	"periph.io/x/conn/v3/physic"
 	"periph.io/x/conn/v3/spi"
 	"periph.io/x/conn/v3/spi/spireg"
+	"periph.io/x/devices/v3/ssd1306/image1bit"
 	"periph.io/x/host/v3"
 )
 
@@ -74,6 +77,7 @@ type EPD154 struct {
 	rst  gpio.PinOut
 	busy gpio.PinIO
 
+	image             *image1bit.VerticalLSB
 	last_init_partial bool // what was the last init mode we used?
 }
 
@@ -126,6 +130,7 @@ func NewEPD154FromConn(c spi.Conn, dc, cs, rst gpio.PinOut, busy gpio.PinIO) (*E
 		rst:               rst,
 		busy:              busy,
 		last_init_partial: false,
+		image:             image1bit.NewVerticalLSB(image.Rectangle{image.Point{0, 0}, image.Point{EPD_1IN54_V2_WIDTH, EPD_1IN54_V2_HEIGHT}}),
 	}
 	// TODO: track b & close it on EPD154.Close
 
@@ -393,9 +398,9 @@ func (e *EPD154) sendImage(img image.Image) {
 	}
 }
 
-func (e *EPD154) display(img image.Image) {
+func (e *EPD154) display() {
 	e.sendCommand(0x24)
-	e.sendImage(img)
+	e.sendImage(e.image)
 	e.turnOnDisplay()
 }
 
@@ -415,9 +420,9 @@ function :	Sends the image buffer in RAM to e-Paper and displays
 parameter:
 *****************************************************************************
 */
-func (e *EPD154) displayPart(img image.Image) {
+func (e *EPD154) displayPart() {
 	e.sendCommand(0x24)
-	e.sendImage(img)
+	e.sendImage(e.image)
 	e.turnOnDisplayPart()
 }
 
@@ -442,10 +447,17 @@ func (e *EPD154) UpdateDisplay(img image.Image, partial bool) {
 		e.init()
 	}
 
+	bounds := img.Bounds()
+	gray := image.NewGray(bounds)
+	draw.Draw(gray, bounds, img, image.Point{}, draw.Src)
+
+	//return halfgone.FloydSteinbergDitherer{}.Apply(gray), nil
+	draw.Draw(e.image, e.image.Bounds(), halfgone.FloydSteinbergDitherer{}.Apply(gray), image.Point{}, draw.Src)
+
 	if partial {
-		e.displayPart(img)
+		e.displayPart()
 	} else {
-		e.display(img)
+		e.display()
 	}
 }
 
