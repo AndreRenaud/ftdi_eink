@@ -43,6 +43,8 @@ func getImageFromFilePath(filePath string) (image.Image, error) {
 func main() {
 	image_filename := flag.String("image", "", "Image to draw on the EInk")
 	rotate := flag.Int("rotate", 0, "Rotation angle")
+	spin := flag.Bool("spin", false, "If set, do a partial refresh 360 degree spin after the initial draw")
+
 	flag.Parse()
 
 	if *image_filename == "" {
@@ -110,6 +112,16 @@ func main() {
 	draw.Draw(img, img.Bounds(), new, image.Point{}, draw.Src)
 	//draw.Draw(img, img.Bounds(), logo, image.Point{}, draw.Src)
 	epd.UpdateDisplay(img, false)
+
+	if *spin {
+		for i := 0; i <= 360; i += 5 {
+			new := imaging.Rotate(logo, float64((*rotate+180+i)%360), color.Transparent)
+			draw.Draw(img, img.Bounds(), new, image.Point{}, draw.Src)
+			//draw.Draw(img, img.Bounds(), logo, image.Point{}, draw.Src)
+			epd.UpdateDisplay(img, true)
+		}
+
+	}
 	//epd.display(img)
 
 	//epd.Close()
