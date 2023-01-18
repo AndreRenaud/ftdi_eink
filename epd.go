@@ -7,9 +7,9 @@ import (
 	"errors"
 	"image"
 	"image/color"
-	"image/draw"
-	"log"
 	"time"
+
+	"golang.org/x/image/draw"
 
 	"github.com/MaxHalford/halfgone"
 	"periph.io/x/conn/v3"
@@ -113,14 +113,6 @@ func NewEPD154FromConn(c spi.Conn, dc, cs, rst gpio.PinOut, busy gpio.PinIO) (*E
 	}
 	if err := dc.Out(gpio.Low); err != nil {
 		return nil, err
-	}
-
-	// Prints out the gpio pin used.
-	if p, ok := c.(spi.Pins); ok {
-		log.Printf("  CLK : %s", p.CLK())
-		log.Printf("  MOSI: %s", p.MOSI())
-		log.Printf("  MISO: %s", p.MISO())
-		log.Printf("  CS  : %s", p.CS())
 	}
 
 	e := &EPD154{
@@ -447,11 +439,10 @@ func (e *EPD154) UpdateDisplay(img image.Image, partial bool) {
 		e.init()
 	}
 
-	bounds := img.Bounds()
+	bounds := e.image.Bounds()
 	gray := image.NewGray(bounds)
-	draw.Draw(gray, bounds, img, image.Point{}, draw.Src)
+	draw.ApproxBiLinear.Scale(gray, bounds, img, img.Bounds(), draw.Src, nil)
 
-	//return halfgone.FloydSteinbergDitherer{}.Apply(gray), nil
 	draw.Draw(e.image, e.image.Bounds(), halfgone.FloydSteinbergDitherer{}.Apply(gray), image.Point{}, draw.Src)
 
 	if partial {
