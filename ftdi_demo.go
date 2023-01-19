@@ -13,6 +13,8 @@ import (
 	"image/gif"
 	_ "image/png"
 
+	"github.com/AndreRenaud/ftdi_eink/epd"
+
 	"github.com/disintegration/imaging"
 	"periph.io/x/conn/v3/gpio"
 	"periph.io/x/host/v3"
@@ -103,7 +105,9 @@ func main() {
 		log.Fatalf("busy: %s", err)
 	}
 
-	epd, err := NewEPD154FromSPI(s, dc, cs, rst, busy)
+	var disp epd.EPD
+
+	disp, err = epd.NewEPD154V2FromSPI(s, dc, cs, rst, busy)
 	if err != nil {
 		log.Fatalf("NewEPD: %s", err)
 	}
@@ -121,7 +125,7 @@ func main() {
 				next := time.Now().Add(delay)
 				log.Printf("Drawing frame %d of %d (%s delay)", i, len(img.Image), delay)
 				frame := imaging.Rotate(img.Image[i], float64(*rotate%360), color.Transparent)
-				epd.UpdateDisplay(frame, !first)
+				disp.UpdateDisplay(frame, !first)
 				time.Sleep(time.Until(next))
 				first = false
 			}
@@ -135,16 +139,16 @@ func main() {
 		if *rotate != 0 {
 			img = imaging.Rotate(img, float64(*rotate%360), color.Transparent)
 		}
-		epd.UpdateDisplay(img, false)
+		disp.UpdateDisplay(img, false)
 
 		if *spin {
 			for i := 0.0; i <= 360; i += 5 {
 				rot := imaging.Rotate(img, i, color.Transparent)
-				epd.UpdateDisplay(rot, true)
+				disp.UpdateDisplay(rot, true)
 			}
 		}
 	}
 
 	// We deliberately don't close it, as that will clear the screen
-	//epd.Close()
+	//disp.Close()
 }

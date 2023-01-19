@@ -1,4 +1,4 @@
-package main
+package epd
 
 // Based on https://github.com/waveshare/e-Paper/blob/master/RaspberryPi_JetsonNano/c/lib/e-Paper/EPD_1in54_V2.c
 // This code is quite messy and should be refactored if it is to be retained
@@ -20,11 +20,8 @@ import (
 	"periph.io/x/host/v3"
 )
 
-const EPD_1IN54_V2_HEIGHT = 200
-const EPD_1IN54_V2_WIDTH = 200
-
 // waveform full refresh
-var WF_Full_1IN54 = []byte{
+var wf_full_1in54 = []byte{
 	0x80, 0x48, 0x40, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
 	0x40, 0x48, 0x80, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
 	0x80, 0x48, 0x40, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
@@ -47,7 +44,7 @@ var WF_Full_1IN54 = []byte{
 }
 
 // waveform partial refresh(fast)
-var WF_PARTIAL_1IN54_0 = []byte{
+var wf_partial_1in54_0 = []byte{
 	0x0, 0x40, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
 	0x80, 0x80, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
 	0x40, 0x40, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
@@ -69,7 +66,7 @@ var WF_PARTIAL_1IN54_0 = []byte{
 	0x02, 0x17, 0x41, 0xB0, 0x32, 0x28,
 }
 
-type EPD154 struct {
+type epd154v2 struct {
 	c    spi.Conn
 	dc   gpio.PinOut
 	cs   gpio.PinOut
@@ -80,8 +77,7 @@ type EPD154 struct {
 	last_init_partial bool // what was the last init mode we used?
 }
 
-// NewSPI returns a Dev object that communicates over SPI to a E-Paper display controller.
-func NewEPD154(spi_bus string, dc, cs, rst gpio.PinOut, busy gpio.PinIO) (*EPD154, error) {
+func NewEPD154V2(spi_bus string, dc, cs, rst gpio.PinOut, busy gpio.PinIO) (EPD, error) {
 	// Make sure periph is initialized.
 	if _, err := host.Init(); err != nil {
 		return nil, err
@@ -92,7 +88,7 @@ func NewEPD154(spi_bus string, dc, cs, rst gpio.PinOut, busy gpio.PinIO) (*EPD15
 		return nil, err
 	}
 
-	epd, err := NewEPD154FromSPI(b, dc, cs, rst, busy)
+	epd, err := NewEPD154V2FromSPI(b, dc, cs, rst, busy)
 	if err != nil {
 		b.Close()
 		return nil, err
@@ -100,7 +96,7 @@ func NewEPD154(spi_bus string, dc, cs, rst gpio.PinOut, busy gpio.PinIO) (*EPD15
 	return epd, nil
 }
 
-func NewEPD154FromSPI(s spi.Port, dc, cs, rst gpio.PinOut, busy gpio.PinIO) (*EPD154, error) {
+func NewEPD154V2FromSPI(s spi.Port, dc, cs, rst gpio.PinOut, busy gpio.PinIO) (EPD, error) {
 	if dc == gpio.INVALID {
 		return nil, errors.New("epd: use nil for dc to use 3-wire mode, do not use gpio.INVALID")
 	}
@@ -114,14 +110,14 @@ func NewEPD154FromSPI(s spi.Port, dc, cs, rst gpio.PinOut, busy gpio.PinIO) (*EP
 		return nil, err
 	}
 
-	e := &EPD154{
+	e := &epd154v2{
 		c:                 c,
 		dc:                dc,
 		cs:                cs,
 		rst:               rst,
 		busy:              busy,
 		last_init_partial: false,
-		image:             image1bit.NewVerticalLSB(image.Rectangle{image.Point{0, 0}, image.Point{EPD_1IN54_V2_WIDTH, EPD_1IN54_V2_HEIGHT}}),
+		image:             image1bit.NewVerticalLSB(image.Rectangle{image.Point{0, 0}, image.Point{200, 200}}),
 	}
 	// TODO: track b & close it on EPD154.Close
 
@@ -136,7 +132,7 @@ func NewEPD154FromSPI(s spi.Port, dc, cs, rst gpio.PinOut, busy gpio.PinIO) (*EP
 	return e, nil
 }
 
-func (e *EPD154) reset() {
+func (e *epd154v2) reset() {
 	e.rst.Out(gpio.High)
 	time.Sleep(20 * time.Millisecond)
 	e.rst.Out(gpio.Low)
@@ -145,7 +141,7 @@ func (e *EPD154) reset() {
 	time.Sleep(20 * time.Millisecond)
 }
 
-func (e *EPD154) sendCommand(cmd byte) error {
+func (e *epd154v2) sendCommand(cmd byte) error {
 	e.dc.Out(gpio.Low)
 	e.cs.Out(gpio.Low)
 	if err := e.c.Tx([]byte{cmd}, nil); err != nil {
@@ -164,11 +160,11 @@ parameter:
 
 *****************************************************************************
 */
-func (e *EPD154) sendData(data byte) error {
+func (e *epd154v2) sendData(data byte) error {
 	return e.sendDataBulk([]byte{data})
 }
 
-func (e *EPD154) sendDataBulk(data []byte) error {
+func (e *epd154v2) sendDataBulk(data []byte) error {
 	e.dc.Out(gpio.High)
 	e.cs.Out(gpio.Low)
 	if err := e.c.Tx(data, nil); err != nil {
@@ -184,7 +180,7 @@ function :	Wait until the busy_pin goes LOW
 parameter:
 *****************************************************************************
 */
-func (e *EPD154) readBusy() {
+func (e *epd154v2) readBusy() {
 	for e.busy.Read() == gpio.High {
 		time.Sleep(time.Millisecond)
 	}
@@ -196,7 +192,7 @@ function :	Turn On Display full
 parameter:
 *****************************************************************************
 */
-func (e *EPD154) turnOnDisplay() {
+func (e *epd154v2) turnOnDisplay() {
 	e.sendCommand(0x22)
 	e.sendData(0xc7)
 	e.sendCommand(0x20)
@@ -209,20 +205,20 @@ function :	Turn On Display part
 parameter:
 *****************************************************************************
 */
-func (e *EPD154) turnOnDisplayPart() {
+func (e *epd154v2) turnOnDisplayPart() {
 	e.sendCommand(0x22)
 	e.sendData(0xcF)
 	e.sendCommand(0x20)
 	e.readBusy()
 }
 
-func (e *EPD154) lut(lut []byte) {
+func (e *epd154v2) lut(lut []byte) {
 	e.sendCommand(0x32)
 	e.sendDataBulk(lut[0:153])
 	e.readBusy()
 }
 
-func (e *EPD154) setLut(lut []byte) {
+func (e *epd154v2) setLut(lut []byte) {
 	e.lut(lut)
 
 	e.sendCommand(0x3f)
@@ -240,7 +236,7 @@ func (e *EPD154) setLut(lut []byte) {
 	e.sendData(lut[158])
 }
 
-func (e *EPD154) setWindows(xstart int, ystart int, xend int, yend int) {
+func (e *epd154v2) setWindows(xstart int, ystart int, xend int, yend int) {
 	e.sendCommand(0x44) // SET_RAM_X_ADDRESS_START_END_POSITION
 	e.sendData(byte(xstart >> 3))
 	e.sendData(byte(xend >> 3))
@@ -252,7 +248,7 @@ func (e *EPD154) setWindows(xstart int, ystart int, xend int, yend int) {
 	e.sendData(byte(yend >> 8))
 }
 
-func (e *EPD154) setCursor(xstart int, ystart int) {
+func (e *epd154v2) setCursor(xstart int, ystart int) {
 	e.sendCommand(0x4E) // SET_RAM_X_ADDRESS_COUNTER
 	e.sendData(byte(xstart))
 
@@ -267,7 +263,7 @@ function :	Initialize the e-Paper register
 parameter:
 *****************************************************************************
 */
-func (e *EPD154) init() {
+func (e *epd154v2) init() {
 	e.reset()
 
 	e.readBusy()
@@ -282,7 +278,7 @@ func (e *EPD154) init() {
 	e.sendCommand(0x11) //data entry mode
 	e.sendData(0x01)
 
-	e.setWindows(0, EPD_1IN54_V2_HEIGHT-1, EPD_1IN54_V2_WIDTH-1, 0)
+	e.setWindows(0, e.Bounds().Dy(), e.Bounds().Dx(), 0)
 
 	e.sendCommand(0x3C) //BorderWavefrom
 	e.sendData(0x01)
@@ -294,10 +290,10 @@ func (e *EPD154) init() {
 	e.sendData(0xB1)
 	e.sendCommand(0x20)
 
-	e.setCursor(0, EPD_1IN54_V2_HEIGHT-1)
+	e.setCursor(0, e.Bounds().Dy()-1)
 	e.readBusy()
 
-	e.setLut(WF_Full_1IN54)
+	e.setLut(wf_full_1in54)
 	e.last_init_partial = false
 }
 
@@ -307,11 +303,11 @@ function :	Initialize the e-Paper register (Partial display)
 parameter:
 *****************************************************************************
 */
-func (e *EPD154) initPartial() {
+func (e *epd154v2) initPartial() {
 	e.reset()
 	e.readBusy()
 
-	e.setLut(WF_PARTIAL_1IN54_0)
+	e.setLut(wf_partial_1in54_0)
 	e.sendCommand(0x37)
 	e.sendData(0x00)
 	e.sendData(0x00)
@@ -341,7 +337,7 @@ function :	Clear screen
 parameter:
 *****************************************************************************
 */
-func (e *EPD154) clear() {
+func (e *epd154v2) clear() {
 	e.sendCommand(0x24)
 	e.sendImage(&image.Uniform{color.Black})
 
@@ -362,31 +358,32 @@ func pixelisset(c color.Color) bool {
 	return set
 }
 
-func (e *EPD154) sendImage(img image.Image) {
-	tosend := [EPD_1IN54_V2_WIDTH * EPD_1IN54_V2_HEIGHT / 8]byte{}
-	for y := 0; y < EPD_1IN54_V2_HEIGHT; y++ {
+func (e *epd154v2) sendImage(img image.Image) {
+	b := e.Bounds()
+	tosend := make([]byte, b.Dx()*b.Dy()/8)
+	for y := 0; y < b.Dy(); y++ {
 		bytetosend := byte(0)
-		for x := 0; x < EPD_1IN54_V2_WIDTH; x++ {
+		for x := 0; x < b.Dx(); x++ {
 			if pixelisset(img.At(x, y)) {
 				bytetosend |= 0x80 >> (x % 8)
 			}
 			if x%8 == 7 {
-				tosend[(y*EPD_1IN54_V2_WIDTH+x)/8] = bytetosend
+				tosend[(y*b.Dx()+x)/8] = bytetosend
 				bytetosend = 0
 			}
 		}
 	}
-	e.sendDataBulk(tosend[:])
+	e.sendDataBulk(tosend)
 }
 
-func (e *EPD154) display() {
+func (e *epd154v2) display() {
 	e.sendCommand(0x24)
 	e.sendImage(e.image)
 	e.turnOnDisplay()
 }
 
 /*
-func (e *EPD154) displayPartBaseImage(img image.Image) {
+func (e *epd154v2) displayPartBaseImage(img image.Image) {
 	e.sendCommand(0x24)
 	e.sendImage(img)
 	e.sendCommand(0x26)
@@ -401,7 +398,7 @@ function :	Sends the image buffer in RAM to e-Paper and displays
 parameter:
 *****************************************************************************
 */
-func (e *EPD154) displayPart() {
+func (e *epd154v2) displayPart() {
 	e.sendCommand(0x24)
 	e.sendImage(e.image)
 	e.turnOnDisplayPart()
@@ -413,13 +410,13 @@ function :	Enter sleep mode
 parameter:
 *****************************************************************************
 */
-func (e *EPD154) sleep() {
+func (e *epd154v2) sleep() {
 	e.sendCommand(0x10) //enter deep sleep
 	e.sendData(0x01)
 	time.Sleep(100 * time.Millisecond)
 }
 
-func (e *EPD154) UpdateDisplay(img image.Image, partial bool) {
+func (e *epd154v2) UpdateDisplay(img image.Image, partial bool) {
 	// If we've changed mode, reinitialize
 	if partial && !e.last_init_partial {
 		e.initPartial()
@@ -447,13 +444,13 @@ func (e *EPD154) UpdateDisplay(img image.Image, partial bool) {
 	}
 }
 
-func (e *EPD154) Close() error {
+func (e *epd154v2) Close() error {
 	e.init()
 	e.clear()
 	e.sleep()
 	return nil
 }
 
-func (e *EPD154) Bounds() image.Rectangle {
+func (e *epd154v2) Bounds() image.Rectangle {
 	return e.image.Bounds()
 }
