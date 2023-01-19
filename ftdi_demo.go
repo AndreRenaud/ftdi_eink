@@ -60,6 +60,7 @@ func main() {
 	image_filename := flag.String("image", "", "Image to draw on the EInk")
 	rotate := flag.Int("rotate", 0, "Rotation angle")
 	spin := flag.Bool("spin", false, "If set, do a partial refresh 360 degree spin after the initial draw")
+	epd_type := flag.String("type", "154_v2", "E-Paper display type (one of: 154v2, 154m09")
 
 	flag.Parse()
 
@@ -107,7 +108,14 @@ func main() {
 
 	var disp epd.EPD
 
-	disp, err = epd.NewEPD154V2FromSPI(s, dc, cs, rst, busy)
+	switch *epd_type {
+	case "154_v2":
+		disp, err = epd.NewEPD154V2FromSPI(s, dc, cs, rst, busy)
+	case "154_m09":
+		disp, err = epd.NewEPD154M09FromSPI(s, dc, cs, rst, busy)
+	default:
+		log.Fatalf("invalid display type %q", *epd_type)
+	}
 	if err != nil {
 		log.Fatalf("NewEPD: %s", err)
 	}
