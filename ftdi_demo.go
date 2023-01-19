@@ -15,8 +15,6 @@ import (
 
 	"github.com/disintegration/imaging"
 	"periph.io/x/conn/v3/gpio"
-	"periph.io/x/conn/v3/physic"
-	"periph.io/x/conn/v3/spi"
 	"periph.io/x/host/v3"
 	"periph.io/x/host/v3/ftdi"
 )
@@ -88,11 +86,6 @@ func main() {
 	}
 	defer s.Close()
 
-	c, err := s.Connect(5*physic.MegaHertz, spi.Mode0, 8)
-	if err != nil {
-		log.Fatalf("Connect: %s", err)
-	}
-
 	dc, err := findGPIO(ft232h, "FT232H.C0")
 	if err != nil {
 		log.Fatalf("DC: %s", err)
@@ -110,7 +103,7 @@ func main() {
 		log.Fatalf("busy: %s", err)
 	}
 
-	epd, err := NewEPD154FromConn(c, dc, cs, rst, busy)
+	epd, err := NewEPD154FromSPI(s, dc, cs, rst, busy)
 	if err != nil {
 		log.Fatalf("NewEPD: %s", err)
 	}

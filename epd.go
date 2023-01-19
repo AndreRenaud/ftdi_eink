@@ -12,7 +12,6 @@ import (
 
 	"github.com/MaxHalford/halfgone"
 	"github.com/disintegration/imaging"
-	"periph.io/x/conn/v3"
 	"periph.io/x/conn/v3/gpio"
 	"periph.io/x/conn/v3/physic"
 	"periph.io/x/conn/v3/spi"
@@ -71,7 +70,7 @@ var WF_PARTIAL_1IN54_0 = []byte{
 }
 
 type EPD154 struct {
-	c    conn.Conn
+	c    spi.Conn
 	dc   gpio.PinOut
 	cs   gpio.PinOut
 	rst  gpio.PinOut
@@ -93,13 +92,7 @@ func NewEPD154(spi_bus string, dc, cs, rst gpio.PinOut, busy gpio.PinIO) (*EPD15
 		return nil, err
 	}
 
-	c, err := b.Connect(5*physic.MegaHertz, spi.Mode0, 8)
-	if err != nil {
-		b.Close()
-		return nil, err
-	}
-
-	epd, err := NewEPD154FromConn(c, dc, cs, rst, busy)
+	epd, err := NewEPD154FromSPI(b, dc, cs, rst, busy)
 	if err != nil {
 		b.Close()
 		return nil, err
@@ -107,10 +100,16 @@ func NewEPD154(spi_bus string, dc, cs, rst gpio.PinOut, busy gpio.PinIO) (*EPD15
 	return epd, nil
 }
 
-func NewEPD154FromConn(c spi.Conn, dc, cs, rst gpio.PinOut, busy gpio.PinIO) (*EPD154, error) {
+func NewEPD154FromSPI(s spi.Port, dc, cs, rst gpio.PinOut, busy gpio.PinIO) (*EPD154, error) {
 	if dc == gpio.INVALID {
 		return nil, errors.New("epd: use nil for dc to use 3-wire mode, do not use gpio.INVALID")
 	}
+
+	c, err := s.Connect(20*physic.MegaHertz, spi.Mode0, 8)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := dc.Out(gpio.Low); err != nil {
 		return nil, err
 	}
