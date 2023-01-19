@@ -28,6 +28,7 @@ type epd154m09 struct {
 	busy gpio.PinIO
 
 	image             *image1bit.VerticalLSB
+	last_image        *image1bit.VerticalLSB
 	last_init_partial bool // what was the last init mode we used?
 }
 
@@ -53,6 +54,7 @@ func NewEPD154M09FromSPI(s spi.Port, dc, cs, rst gpio.PinOut, busy gpio.PinIO) (
 		busy:              busy,
 		last_init_partial: false,
 		image:             image1bit.NewVerticalLSB(image.Rectangle{image.Point{0, 0}, image.Point{200, 200}}),
+		last_image:        image1bit.NewVerticalLSB(image.Rectangle{image.Point{0, 0}, image.Point{200, 200}}),
 	}
 	// TODO: track b & close it on EPD154.Close
 
@@ -254,9 +256,10 @@ func (e *epd154m09) UpdateDisplay(img image.Image, partial bool) {
 	//if(mode==0)  //mode0:Refresh picture1
 	//{
 	e.sendCommand(0x10)
-	e.sendImage(&image.Uniform{color.White})
+	e.sendImage(e.last_image)
 	e.sendCommand(0x13)
 	e.sendImage(e.image)
+	draw.Draw(e.last_image, bounds, e.image, image.Point{}, draw.Src)
 	//}
 	/*
 	    else if(mode==1)  //mode0:Refresh picture2...
