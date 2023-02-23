@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"image/color"
+	"image/draw"
 	"image/gif"
 	_ "image/png"
+	_ "image/jpeg"
 
 	"github.com/AndreRenaud/ftdi_eink/epd"
 
@@ -32,6 +34,16 @@ func findGPIO(ft232h *ftdi.FT232H, name string) (gpio.PinIO, error) {
 }
 
 func getImageFromFilePath(filePath string) (image.Image, error) {
+	// HACK
+	if filePath == "black" {
+		img := image.NewRGBA(image.Rect(0, 0, 200, 200))
+		draw.Draw(img, img.Bounds(), image.Black, image.Point{}, draw.Src)
+		return img, nil
+	} else if filePath == "white" {
+		img := image.NewRGBA(image.Rect(0, 0, 200, 200))
+		draw.Draw(img, img.Bounds(), image.White, image.Point{}, draw.Src)
+		return img, nil
+	}
 	f, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -43,6 +55,7 @@ func getImageFromFilePath(filePath string) (image.Image, error) {
 	}
 	return img, nil
 }
+
 func getGifFromFilePath(filePath string) (*gif.GIF, error) {
 	f, err := os.Open(filePath)
 	if err != nil {
